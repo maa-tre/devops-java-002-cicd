@@ -11,6 +11,11 @@ as its script path. The CI pipeline uses a Windows Jenkins executor with
 `agent any` and calls the Docker CLI with Windows batch steps; Docker Desktop
 must be running and available to the Windows account running the Jenkins service.
 Enable **GitHub hook trigger for GITScm polling** to build on pushes.
+For a Jenkins instance on a developer PC, forward port `8081` with ngrok and
+configure the GitHub repository webhook to `<ngrok-url>/github-webhook/`
+(JSON content type, `push` event). Keep ngrok running while expecting pushes.
+Run the job once after configuring SCM so Jenkins loads the trigger declared
+in the Jenkinsfile.
 
 The `deploy.Jenkinsfile` is a separate CD pipeline and still uses Linux shell
 steps; it needs a compatible Linux Jenkins agent and deployment credentials.
