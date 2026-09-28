@@ -4,23 +4,28 @@ Nginx homebrew command
 Starting the java application
 `SERVER_PORT=8090 ./mvnw spring-boot:run`
 
-## Jenkins CI
+## Jenkins CI/CD
 
 Create a Pipeline job using this repository's `main` branch and `Jenkinsfile`
-as its script path. The CI pipeline uses a Windows Jenkins executor with
-`agent any` and calls the Docker CLI with Windows batch steps; Docker Desktop
-must be running and available to the Windows account running the Jenkins service.
-Enable **GitHub hook trigger for GITScm polling** to build on pushes.
+as its script path. The pipeline uses a Windows Jenkins executor with `agent
+any` and Windows batch steps; Docker Desktop and WSL must be available to the
+Windows account running Jenkins. Enable **GitHub hook trigger for GITScm
+polling** to build on pushes. On a successful main-branch build it streams the
+verified image over SSH to EC2; it does not require Docker Hub credentials.
 For a Jenkins instance on a developer PC, forward port `8081` with ngrok and
 configure the GitHub repository webhook to `<ngrok-url>/github-webhook/`
 (JSON content type, `push` event). Keep ngrok running while expecting pushes.
 Run the job once after configuring SCM so Jenkins loads the trigger declared
 in the Jenkinsfile.
 
-The `deploy.Jenkinsfile` is a separate CD pipeline and still uses Linux shell
-steps; it needs a compatible Linux Jenkins agent and deployment credentials.
-The CI code-quality stage is currently a placeholder and does not run a
-quality tool.
+The app is deployed to EC2 on host port `8080`, joined to the private
+`private-net` Docker network. The app continues to use its default H2 database;
+PostgreSQL is not connected. Ansible installs the root-owned deployment script
+at `/opt/devops-java-002/deploy-app.sh`; it checks the endpoint and attempts to
+restore the previous image if the new container is unhealthy. The EC2 address
+is the `DEPLOY_HOST` Jenkins parameter and must be updated if the instance's
+public IP changes after a stop/start. The CI code-quality stage remains a
+placeholder and does not run a quality tool.
 
 ## Automated AWS environment
 

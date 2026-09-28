@@ -1,6 +1,14 @@
 pipeline {
       agent any
-                                                                                                                                   
+
+      parameters {
+          string(
+              name: 'DEPLOY_HOST',
+              defaultValue: '54.163.47.143',
+              description: 'Public IPv4 address of the space-hyper-cicd EC2 instance'
+          )
+      }
+
       options {   
           buildDiscarder(logRotator(numToKeepStr: '10'))
           timestamps()
@@ -27,7 +35,7 @@ pipeline {
   ║               CI PIPELINE STARTED                    ║                                                                         
   ╚══════════════════════════════════════════════════════╝
      Build  : #${env.BUILD_NUMBER}                                                                                                 
-     Branch : ${env.BRANCH_NAME}                                                                                                   
+     Branch : ${env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'N/A'}
      PR     : ${env.CHANGE_ID ?: 'Not a PR'}
      Title  : ${env.CHANGE_TITLE ?: 'N/A'}                                                                                         
   ══════════════════════════════════════════════════════
@@ -103,6 +111,23 @@ pipeline {
               }                                                                                                                    
           }       
 
+          stage('🚀 Deploy to EC2') {
+              when {
+                  expression { !env.CHANGE_ID }
+              }
+              steps {
+                  script {
+                      if (!(params.DEPLOY_HOST ==~ /[A-Za-z0-9.-]+/)) {
+                          error('DEPLOY_HOST must be an EC2 IPv4 address or DNS hostname.')
+                      }
+                  }
+                  bat """
+                      wsl.exe -- bash -lc "set -o pipefail && docker image inspect '%CI_IMAGE%' >/dev/null && docker save '%CI_IMAGE%' | gzip -c | ssh -i ~/.ssh/devops-java-002 -o BatchMode=yes -o StrictHostKeyChecking=accept-new ubuntu@${params.DEPLOY_HOST} 'gunzip -c | sudo docker load && sudo /opt/devops-java-002/deploy-app.sh %CI_IMAGE% 8080'"
+                      if errorlevel 1 exit /b 1
+                  """
+              }
+          }
+
           stage('🧹 Cleanup') {
               steps {
                   bat """
@@ -128,6 +153,7 @@ pipeline {
      ✅ Docker Build  : Passed                                                                                                     
      ✅ Image Verify  : Passed
      ✅ Security Scan : Passed                                                                                                     
+     ✅ EC2 Deployment : Passed
      🚫 Deployment   : Skipped (PRs never deploy)
                                                                                                                                    
      → Get code review → Merge to main for deployment                                                                              
@@ -146,6 +172,7 @@ pipeline {
      ✅ Docker Build  : Passed
      ✅ Image Verify  : Passed
      ✅ Security Scan : Passed                                                                                                     
+     ✅ EC2 Deployment : Passed
   ══════════════════════════════════════════════════════
                       """                                                                                                          
                   }

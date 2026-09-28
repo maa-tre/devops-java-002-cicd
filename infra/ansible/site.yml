@@ -23,6 +23,7 @@
         name:
           - docker.io
           - docker-compose-v2
+          - curl
         state: present
         update_cache: true
         cache_valid_time: 3600
@@ -47,6 +48,14 @@
         owner: ubuntu
         group: ubuntu
         mode: "0750"
+
+    - name: Install application deployment script
+      ansible.builtin.copy:
+        src: ../scripts/deploy-app.sh
+        dest: "{{ deployment_dir }}/deploy-app.sh"
+        owner: root
+        group: root
+        mode: "0755"
 
     - name: Install PostgreSQL Compose configuration
       ansible.builtin.template:
