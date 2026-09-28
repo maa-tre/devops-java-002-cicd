@@ -4,6 +4,19 @@ Nginx homebrew command
 Starting the java application
 `SERVER_PORT=8090 ./mvnw spring-boot:run`
 
+## Jenkins CI
+
+Create a Pipeline job using this repository's `main` branch and `Jenkinsfile`
+as its script path. The CI pipeline uses a Windows Jenkins executor with
+`agent any` and calls the Docker CLI with Windows batch steps; Docker Desktop
+must be running and available to the Windows account running the Jenkins service.
+Enable **GitHub hook trigger for GITScm polling** to build on pushes.
+
+The `deploy.Jenkinsfile` is a separate CD pipeline and still uses Linux shell
+steps; it needs a compatible Linux Jenkins agent and deployment credentials.
+The CI code-quality stage is currently a placeholder and does not run a
+quality tool.
+
 ## Automated AWS environment
 
 The `infra` directory provisions a fresh Ubuntu EC2 instance in `us-east-1`

@@ -13,7 +13,7 @@ pipeline {
 
       environment {
           APP_NAME = 'java-app'
-          CI_IMAGE = "${APP_NAME}:ci-${env.GIT_COMMIT.take(7)}"
+          CI_IMAGE = "${APP_NAME}:ci-${env.BUILD_NUMBER}"
       }                                                                                                                            
    
    
@@ -50,8 +50,8 @@ pipeline {
           stage('🔍 Code Quality') {
               steps {
                   bat '''
-                      echo Checking code quality
-                      echo Quality checks are not configured yet
+                      echo "Checking code quality"
+                      echo "No automated quality checks are configured yet"
                   '''
               }  
           }     
@@ -123,8 +123,8 @@ pipeline {
   ╚══════════════════════════════════════════════════════╝
      PR     : #${env.CHANGE_ID} - ${env.CHANGE_TITLE}                                                                              
                   
-     ✅ Code Quality  : Passed                                                                                                     
-     ✅ Quality Gate  : Passed
+     ⚠️ Code Quality  : Not configured
+     ⚠️ Quality Gate  : Not configured
      ✅ Docker Build  : Passed                                                                                                     
      ✅ Image Verify  : Passed
      ✅ Security Scan : Passed                                                                                                     
@@ -141,8 +141,8 @@ pipeline {
      Branch : ${env.BRANCH_NAME}                                                                                                   
      Build  : #${env.BUILD_NUMBER}                                                                                                 
   
-     ✅ Code Quality  : Passed                                                                                                     
-     ✅ Quality Gate  : Passed
+     ⚠️ Code Quality  : Not configured
+     ⚠️ Quality Gate  : Not configured
      ✅ Docker Build  : Passed
      ✅ Image Verify  : Passed
      ✅ Security Scan : Passed                                                                                                     
