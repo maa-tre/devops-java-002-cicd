@@ -1,10 +1,5 @@
 pipeline {
-      agent {                                                                                                                      
-          docker {
-              image 'docker:cli'                                                                                                   
-              args '-v /var/run/docker.sock:/var/run/docker.sock'
-          }                                                                                                                        
-      }
+      agent any
                                                                                                                                    
       options {   
           buildDiscarder(logRotator(numToKeepStr: '10'))
@@ -43,53 +38,50 @@ pipeline {
 
           stage('🔧 Verify Environment') {
               steps {
-                  sh '''
-                      echo "Hostname : $(hostname)"                                                                                
-                      echo "User     : $(whoami)"
-                      docker --version                                                                                             
-                      echo "✅ Environment ready"
-                  '''                                                                                                              
+                  bat '''
+                      echo Hostname: %COMPUTERNAME%
+                      whoami
+                      docker --version
+                      echo Environment ready
+                  '''
               }   
           }                                                                                                                         
    
           stage('🔍 Code Quality') {
               steps {
-                  sh '''
-                      echo "Checking Code quality"                                                                                                                                                                       
-                      echo "✅ Quality all good"
-                  '''                                                                                                              
+                  bat '''
+                      echo Checking code quality
+                      echo Quality checks are not configured yet
+                  '''
               }  
           }     
 
           stage('🐳 Docker Build') {                                                                                               
               steps {
-                  sh """                                                                                                           
-                      echo "Building: ${CI_IMAGE}"
-                      docker build --tag ${CI_IMAGE} --file Dockerfile .
-                      echo "✅ Build successful"                                                                                   
-                      docker images ${CI_IMAGE}
-                  """                                                                                                              
+                  bat """
+                      echo Building: %CI_IMAGE%
+                      docker build --tag %CI_IMAGE% --file Dockerfile .
+                      if errorlevel 1 exit /b 1
+                      echo Build successful
+                      docker images %CI_IMAGE%
+                  """
               }   
           }                                                                                                                        
                   
           stage('🧪 Verify Image') {
               steps {
-                  sh """
-                      echo "=== Image Verification ==="
-                                                                                                                                   
-                      echo "1. Checking JAR exists inside image..."
-                      docker run --rm --entrypoint ls ${CI_IMAGE} -lh /app/app.jar                                                 
-                      echo "✅ JAR found"                                                                                          
-                                                                                                                                   
-                      echo "2. Checking Java inside image..."                                                                      
-                      docker run --rm --entrypoint java ${CI_IMAGE} -version                                                       
-                      echo "✅ Java OK"
-
-                      echo "3. Checking exposed port..."                                                                           
-                      docker inspect ${CI_IMAGE} --format='Port: {{json .Config.ExposedPorts}}'
-                      echo "✅ Port OK"                                                                                            
-                  
-                      echo "✅ Image verification passed"                                                                          
+                  bat """
+                      echo === Image Verification ===
+                      echo Checking JAR exists inside image
+                      docker run --rm --entrypoint ls %CI_IMAGE% -lh /app/app.jar
+                      if errorlevel 1 exit /b 1
+                      echo Checking Java inside image
+                      docker run --rm --entrypoint java %CI_IMAGE% -version
+                      if errorlevel 1 exit /b 1
+                      echo Checking exposed port
+                      docker inspect %CI_IMAGE% --format="Port: {{json .Config.ExposedPorts}}"
+                      if errorlevel 1 exit /b 1
+                      echo Image verification passed
                   """
               }
           }
@@ -97,27 +89,25 @@ pipeline {
 
           stage('🔒 Security Scan') {                                                                                              
               steps {
-                  sh """                                                                                                           
-                      echo "=== Security Scan ==="
-
-                      CONTAINER_UID=\$(docker run --rm --entrypoint id ${CI_IMAGE} -u)                                             
-                      echo "Container UID: \${CONTAINER_UID}"
-                                                                                                                                   
-                      if [ "\${CONTAINER_UID}" = "0" ]; then                                                                       
-                          echo "❌ FAILED: Running as ROOT (UID 0) - Security risk!"
-                          exit 1                                                                                                   
-                      else
-                          echo "✅ PASSED: Non-root UID (\${CONTAINER_UID})"                                                       
-                      fi                                                                                                           
+                  bat """
+                      echo === Security Scan ===
+                      for /f %%U in ('docker run --rm --entrypoint id %CI_IMAGE% -u') do set CONTAINER_UID=%%U
+                      if not defined CONTAINER_UID exit /b 1
+                      echo Container UID: %CONTAINER_UID%
+                      if "%CONTAINER_UID%"=="0" (
+                          echo FAILED: Image runs as root
+                          exit /b 1
+                      )
+                      echo Passed: Image runs as a non-root user
                   """
               }                                                                                                                    
           }       
 
           stage('🧹 Cleanup') {
               steps {
-                  sh """                                                                                                           
-                      docker rmi ${CI_IMAGE} || true
-                      echo "✅ Cleanup done"                                                                                       
+                  bat """
+                      docker rmi %CI_IMAGE% 2>NUL
+                      echo Cleanup done
                   """
               }
           }                                                                                                                        
@@ -176,7 +166,7 @@ pipeline {
           }                                                                                                                        
                   
           always {                                                                                                                 
-              sh 'docker image prune -f || true'
+              bat 'docker image prune -f'
           }                                                                                                                        
       }           
   }
