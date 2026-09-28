@@ -10,9 +10,12 @@ pipeline {
           buildDiscarder(logRotator(numToKeepStr: '10'))
           timestamps()
           timeout(time: 20, unit: 'MINUTES')
-          disableConcurrentBuilds()                                                                                                
+          disableConcurrentBuilds()
       }
-                                                                                                                                   
+      triggers {
+          githubPush()
+      }
+
       environment {
           APP_NAME = 'java-app'
           CI_IMAGE = "${APP_NAME}:ci-${env.GIT_COMMIT.take(7)}"
