@@ -1,0 +1,8 @@
+/mvnw text eol=lf
+*.cmd text eol=crlf
+*.sh text eol=lf
+*.tf text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.j2 text eol=lf
+.env.example text eol=lf

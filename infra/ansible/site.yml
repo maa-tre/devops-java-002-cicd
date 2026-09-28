@@ -1,0 +1,86 @@
+---
+- name: Configure the DevOps demo EC2 host
+  hosts: all
+  become: true
+
+  vars:
+    deployment_dir: /opt/devops-java-002
+    db_name: studentdb
+    db_user: postgres
+    postgres_password: >-
+      {{ lookup('ansible.builtin.password',
+      playbook_dir + '/.postgres_password length=40 chars=ascii_letters,digits') }}
+
+  tasks:
+    - name: Require Ubuntu
+      ansible.builtin.assert:
+        that:
+          - ansible_facts["distribution"] == "Ubuntu"
+        fail_msg: "This playbook supports Ubuntu EC2 hosts."
+
+    - name: Install Docker Engine and Compose plugin
+      ansible.builtin.apt:
+        name:
+          - docker.io
+          - docker-compose-v2
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+        lock_timeout: 300
+
+    - name: Enable and start Docker
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Add the Ubuntu login user to the Docker group
+      ansible.builtin.user:
+        name: ubuntu
+        groups: docker
+        append: true
+
+    - name: Create the deployment directory
+      ansible.builtin.file:
+        path: "{{ deployment_dir }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: "0750"
+
+    - name: Install PostgreSQL Compose configuration
+      ansible.builtin.template:
+        src: templates/compose.yaml.j2
+        dest: "{{ deployment_dir }}/compose.yaml"
+        owner: ubuntu
+        group: ubuntu
+        mode: "0640"
+      register: compose_config
+
+    - name: Install PostgreSQL environment file
+      ansible.builtin.template:
+        src: templates/database.env.j2
+        dest: "{{ deployment_dir }}/.env"
+        owner: ubuntu
+        group: ubuntu
+        mode: "0600"
+      no_log: true
+      register: database_env
+
+    - name: Start PostgreSQL and wait for its health check
+      ansible.builtin.command:
+        cmd: docker compose up --detach --wait
+        chdir: "{{ deployment_dir }}"
+      register: compose_up
+      changed_when: >-
+        'Created' in compose_up.stdout or
+        'Recreated' in compose_up.stdout or
+        'Started' in compose_up.stdout
+
+    - name: Confirm the PostgreSQL service is running
+      ansible.builtin.command:
+        cmd: docker compose ps --status running --services
+        chdir: "{{ deployment_dir }}"
+      register: running_services
+      changed_when: false
+      failed_when: "'db-service' not in running_services.stdout_lines"

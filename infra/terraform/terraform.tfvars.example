@@ -1,0 +1,6 @@
+aws_region       = "us-east-1"
+project_name      = "space-hyper-cicd"
+instance_type     = "t3.micro"
+app_port          = 8080
+public_key_path  = "~/.ssh/devops-java-002.pub"
+allowed_ssh_cidrs = []

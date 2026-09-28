@@ -1,0 +1,28 @@
+version: '3.8'
+
+
+services:
+  db-service:
+    image: postgres:16-alpine
+    container_name: postgres_db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-studentdb}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in the ignored .env file}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - private-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-studentdb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  private-net:
+    name: private-net
+    driver: bridge
+
+volumes:
+  postgres_data:
