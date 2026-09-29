@@ -108,7 +108,7 @@ pipeline {
                       for /l %%I in (1,1,30) do (
                           docker inspect --format="{{.State.Health.Status}}" %PG_TEST_DB% | findstr /x healthy >NUL
                           if not errorlevel 1 goto pg_ready
-                          timeout /t 2 /nobreak >NUL
+                          ping -n 3 127.0.0.1 >NUL
                       )
                       docker logs %PG_TEST_DB%
                       exit /b 1
@@ -122,7 +122,7 @@ pipeline {
                       for /l %%I in (1,1,30) do (
                           docker inspect --format="{{.State.Running}}" %PG_TEST_APP% | findstr /x true >NUL
                           if not errorlevel 1 goto app_started
-                          timeout /t 2 /nobreak >NUL
+                          ping -n 3 127.0.0.1 >NUL
                       )
                       docker logs %PG_TEST_APP%
                       exit /b 1
