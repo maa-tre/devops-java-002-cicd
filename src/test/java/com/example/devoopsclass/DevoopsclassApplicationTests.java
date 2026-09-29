@@ -20,6 +20,11 @@ class DevoopsclassApplicationTests {
 
 		assertTrue(page.contains("<title>Space Hyper CI/CD Demo</title>"));
 		assertTrue(page.contains("Deployed automatically with Jenkins CI/CD"));
+		assertTrue(page.contains("<nav aria-label=\"Route navigation\">"));
+		assertTrue(page.contains("<a href=\"/about\">About</a>"));
+		assertTrue(page.contains("<a href=\"/contact\">Contact</a>"));
+		assertTrue(page.contains("<a href=\"/deploy\">Deploy</a>"));
+		assertTrue(page.contains("<a href=\"/binaya\">Binaya</a>"));
 	}
 
 }

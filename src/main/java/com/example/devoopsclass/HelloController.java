@@ -45,6 +45,32 @@ public class HelloController {
                             margin-top: 1rem;
                             padding: 0.5rem 1rem;
                         }
+                        nav {
+                            display: flex;
+                            flex-wrap: wrap;
+                            gap: 0.75rem;
+                            justify-content: center;
+                            margin-top: 2rem;
+                        }
+                        nav a {
+                            border: 1px solid rgba(196, 210, 237, 0.3);
+                            border-radius: 999px;
+                            color: #c4d2ed;
+                            padding: 0.6rem 1rem;
+                            text-decoration: none;
+                            transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+                        }
+                        nav a:hover,
+                        nav a:focus-visible {
+                            background: rgba(104, 224, 176, 0.12);
+                            border-color: #68e0b0;
+                            color: #68e0b0;
+                        }
+                        @media (prefers-reduced-motion: reduce) {
+                            nav a {
+                                transition: none;
+                            }
+                        }
                     </style>
                 </head>
                 <body>
@@ -52,6 +78,12 @@ public class HelloController {
                         <h1>Space Hyper</h1>
                         <p> Java application is running on AWS EC2.</p>
                         <span class="badge">Deployed automatically with Jenkins CI/CD</span>
+                        <nav aria-label="Route navigation">
+                            <a href="/about">About</a>
+                            <a href="/contact">Contact</a>
+                            <a href="/deploy">Deploy</a>
+                            <a href="/binaya">Binaya</a>
+                        </nav>
                     </main>
                 </body>
                 </html>
