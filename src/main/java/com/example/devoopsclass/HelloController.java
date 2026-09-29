@@ -50,7 +50,7 @@ public class HelloController {
                 <body>
                     <main>
                         <h1>Space Hyper</h1>
-                        <p>Your Java application is running on AWS EC2.</p>
+                        <p> Java application is running on AWS EC2.</p>
                         <span class="badge">Deployed automatically with Jenkins CI/CD</span>
                     </main>
                 </body>
