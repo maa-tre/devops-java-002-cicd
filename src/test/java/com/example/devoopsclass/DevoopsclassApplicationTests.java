@@ -19,7 +19,11 @@ class DevoopsclassApplicationTests {
 		String page = helloController.index();
 
 		assertTrue(page.contains("<title>Space Hyper CI/CD Demo</title>"));
-		assertTrue(page.contains("Deployed automatically with Jenkins CI/CD"));
+		assertTrue(page.contains("Space Hyper and Amar Rana"));
+		assertTrue(page.contains("letter--space"));
+		assertTrue(page.contains("letter--amar"));
+		assertTrue(page.contains("prefers-reduced-motion: reduce"));
+		assertTrue(page.contains("Java application is running on AWS EC2."));
 	}
 
 }
