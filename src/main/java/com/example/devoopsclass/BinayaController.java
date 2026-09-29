@@ -5,8 +5,15 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class BinayaController {
-    @GetMapping("/binaya")
+    @GetMapping(value = "/binaya", produces = "text/html")
     public String index() {
-        return "this is new route added for demo";
+        return SitePage.render("Binaya | Space Hyper", "/binaya", """
+                <section class="content-card">
+                    <p class="eyebrow">Demo route</p>
+                    <h1>Binaya's project page.</h1>
+                    <p>This route is part of the original demo and remains available as the project grows.</p>
+                    <span class="status-pill">Spring Boot route is active</span>
+                </section>
+                """, "");
     }
 }
