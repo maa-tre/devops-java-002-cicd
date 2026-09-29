@@ -18,10 +18,38 @@ configure the GitHub repository webhook to `<ngrok-url>/github-webhook/`
 Run the job once after configuring SCM so Jenkins loads the trigger declared
 in the Jenkinsfile.
 
-The app is deployed to EC2 on host port `8080`, joined to the private
-`private-net` Docker network. The app continues to use its default H2 database;
-PostgreSQL is not connected. Ansible installs the root-owned deployment script
-at `/opt/devops-java-002/deploy-app.sh`; it checks the endpoint and attempts to
+The EC2 deployment is configured for host port `8080` on the private
+`private-net` Docker network and will connect to PostgreSQL at
+`db-service:5432` after Ansible provisions its runtime credentials. H2 remains
+the default for local Spring runs. Ansible generates separate PostgreSQL admin
+and application passwords on the Ansible controller; the generated password
+files under `infra/ansible/` are ignored by Git. PostgreSQL receives its admin
+settings from `/opt/devops-java-002/.env`. The app receives only its
+least-privilege `java_app` credentials from the root-owned
+`/opt/devops-java-002/app.env` file (mode `0600`), passed to the app container
+at runtime with Docker `--env-file`. These secrets are not part of the image
+or Jenkins parameters. PostgreSQL is not published on a host port. Jenkins
+also runs a disposable PostgreSQL startup test using temporary CI-only
+credentials before deployment.
+
+For a local full-stack Compose run, copy `.env.example` to `.env`, set distinct
+strong values for `DB_PASSWORD` and `APP_DB_PASSWORD`, then run
+`docker compose up --build`. Restrict the local env file with `chmod 600 .env`.
+Compose provisions the non-admin app role before starting the backend. Plain
+`./mvnw spring-boot:run` continues to use H2. Deployment-history storage and
+its authenticated Jenkins rollback workflow are a later implementation step.
+
+Ansible must configure the EC2 host before the first deployment of an image
+that requires PostgreSQL. To rotate the app database password, replace the
+ignored `infra/ansible/.app_db_password` file with a newly generated password,
+rerun Ansible, then redeploy the app so its container receives the new
+environment. This rotates the DB role and changes the app env file; the
+currently running container must be redeployed immediately to use the new
+password. Restrict EC2/Docker access: Docker administrators can inspect
+container environment values.
+
+Ansible installs the root-owned deployment script at
+`/opt/devops-java-002/deploy-app.sh`; it checks the endpoint and attempts to
 restore the previous image if the new container is unhealthy. The EC2 address
 is the `DEPLOY_HOST` Jenkins parameter and must be updated if the instance's
 public IP changes after a stop/start. The CI code-quality stage remains a
@@ -31,9 +59,9 @@ placeholder and does not run a quality tool.
 
 The `infra` directory provisions a fresh Ubuntu EC2 instance in `us-east-1`
 with Terraform and configures Docker plus a private PostgreSQL container with
-Ansible. PostgreSQL has a persistent Docker volume, but the Spring Boot app
-currently uses its default in-memory H2 database; no PostgreSQL integration is
-configured yet. The app is intended to be exposed on port `8080`. Jenkins is
+Ansible. PostgreSQL has a persistent Docker volume and the deployed Spring Boot
+app uses a separate application role. Local Spring Boot runs still default to
+in-memory H2. The app is intended to be exposed on port `8080`. Jenkins is
 separate and is not installed by this setup. The default `t3.micro` is suitable
 only for a low-traffic demo; use a larger instance if the app and database
 compete for its limited memory. AWS resources use the `space-hyper-cicd` name

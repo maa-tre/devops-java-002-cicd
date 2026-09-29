@@ -94,6 +94,54 @@ pipeline {
               }
           }
 
+          stage('🐘 PostgreSQL Startup Test') {
+              steps {
+                  bat '''
+                      @echo off
+                      set "PG_TEST_NETWORK=java-app-pg-ci-%BUILD_NUMBER%"
+                      set "PG_TEST_DB=java-app-pg-db-%BUILD_NUMBER%"
+                      set "PG_TEST_APP=java-app-pg-app-%BUILD_NUMBER%"
+                      docker network create %PG_TEST_NETWORK%
+                      if errorlevel 1 exit /b 1
+                      docker run --detach --name %PG_TEST_DB% --network %PG_TEST_NETWORK% --health-cmd "pg_isready -U ci_admin -d ci_test" --health-interval 2s --health-timeout 3s --health-retries 15 -e POSTGRES_DB=ci_test -e POSTGRES_USER=ci_admin -e POSTGRES_PASSWORD=ci-admin-%BUILD_NUMBER%-secret postgres:16-alpine
+                      if errorlevel 1 exit /b 1
+                      for /l %%I in (1,1,30) do (
+                          docker inspect --format="{{.State.Health.Status}}" %PG_TEST_DB% | findstr /x healthy >NUL
+                          if not errorlevel 1 goto pg_ready
+                          timeout /t 2 /nobreak >NUL
+                      )
+                      docker logs %PG_TEST_DB%
+                      exit /b 1
+                      :pg_ready
+                      docker exec %PG_TEST_DB% psql --set=ON_ERROR_STOP=1 --username ci_admin --dbname ci_test --command="CREATE ROLE ci_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD 'ci-only-%BUILD_NUMBER%-secret'"
+                      if errorlevel 1 exit /b 1
+                      docker exec %PG_TEST_DB% psql --set=ON_ERROR_STOP=1 --username ci_admin --dbname ci_test --command="GRANT CONNECT ON DATABASE ci_test TO ci_app; GRANT USAGE ON SCHEMA public TO ci_app"
+                      if errorlevel 1 exit /b 1
+                      docker run --detach --name %PG_TEST_APP% --network %PG_TEST_NETWORK% -e SPRING_DATASOURCE_URL=jdbc:postgresql://%PG_TEST_DB%:5432/ci_test -e SPRING_DATASOURCE_USERNAME=ci_app -e SPRING_DATASOURCE_PASSWORD=ci-only-%BUILD_NUMBER%-secret -e SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver -e SPRING_JPA_HIBERNATE_DDL_AUTO=validate %CI_IMAGE%
+                      if errorlevel 1 exit /b 1
+                      for /l %%I in (1,1,30) do (
+                          docker inspect --format="{{.State.Running}}" %PG_TEST_APP% | findstr /x true >NUL
+                          if not errorlevel 1 goto app_started
+                          timeout /t 2 /nobreak >NUL
+                      )
+                      docker logs %PG_TEST_APP%
+                      exit /b 1
+                      :app_started
+                      docker logs %PG_TEST_APP% | findstr /C:"Started DevoopsclassApplication"
+                      if errorlevel 1 exit /b 1
+                      echo PostgreSQL connection and Spring Boot startup passed
+                  '''
+              }
+              post {
+                  always {
+                      bat(returnStatus: true, script: '''
+                          @echo off
+                          docker rm --force java-app-pg-ci-app-%BUILD_NUMBER% java-app-pg-db-%BUILD_NUMBER% 2>NUL
+                          docker network rm java-app-pg-ci-%BUILD_NUMBER% 2>NUL
+                      ''')
+                  }
+              }
+          }
 
           stage('🔒 Security Scan') {                                                                                              
               steps {

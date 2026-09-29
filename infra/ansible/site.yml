@@ -7,9 +7,7 @@
     deployment_dir: /opt/devops-java-002
     db_name: studentdb
     db_user: postgres
-    postgres_password: >-
-      {{ lookup('ansible.builtin.password',
-      playbook_dir + '/.postgres_password length=40 chars=ascii_letters,digits') }}
+    app_db_user: java_app
 
   tasks:
     - name: Require Ubuntu
@@ -17,6 +15,28 @@
         that:
           - ansible_facts["distribution"] == "Ubuntu"
         fail_msg: "This playbook supports Ubuntu EC2 hosts."
+
+    - name: Generate persistent database credentials on the Ansible controller
+      ansible.builtin.set_fact:
+        postgres_password: >-
+          {{ lookup('ansible.builtin.password',
+          playbook_dir + '/.postgres_password length=40 chars=ascii_letters,digits') }}
+        app_db_password: >-
+          {{ lookup('ansible.builtin.password',
+          playbook_dir + '/.app_db_password length=40 chars=ascii_letters,digits') }}
+      no_log: true
+
+    - name: Restrict generated credential files on the Ansible controller
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: file
+        mode: "0600"
+      loop:
+        - "{{ playbook_dir }}/.postgres_password"
+        - "{{ playbook_dir }}/.app_db_password"
+      delegate_to: localhost
+      become: false
+      no_log: true
 
     - name: Install Docker Engine and Compose plugin
       ansible.builtin.apt:
@@ -70,8 +90,8 @@
       ansible.builtin.template:
         src: templates/database.env.j2
         dest: "{{ deployment_dir }}/.env"
-        owner: ubuntu
-        group: ubuntu
+        owner: root
+        group: root
         mode: "0600"
       no_log: true
       register: database_env
@@ -93,3 +113,40 @@
       register: running_services
       changed_when: false
       failed_when: "'db-service' not in running_services.stdout_lines"
+
+    - name: Provision the least-privilege application database role
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - --interactive
+          - postgres_db
+          - psql
+          - --set=ON_ERROR_STOP=1
+          - --username
+          - "{{ db_user }}"
+          - --dbname
+          - "{{ db_name }}"
+        stdin: |
+          DO $role$
+          BEGIN
+            IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '{{ app_db_user }}') THEN
+              CREATE ROLE {{ app_db_user }} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD '{{ app_db_password }}';
+            ELSE
+              ALTER ROLE {{ app_db_user }} WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD '{{ app_db_password }}';
+            END IF;
+          END;
+          $role$;
+          GRANT CONNECT ON DATABASE {{ db_name }} TO {{ app_db_user }};
+          GRANT USAGE ON SCHEMA public TO {{ app_db_user }};
+      no_log: true
+      changed_when: true
+
+    - name: Install application PostgreSQL environment file
+      ansible.builtin.template:
+        src: templates/app.env.j2
+        dest: "{{ deployment_dir }}/app.env"
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true

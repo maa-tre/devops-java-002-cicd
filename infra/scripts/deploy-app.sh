@@ -10,6 +10,7 @@ image_ref="$1"
 host_port="$2"
 container_name="java-app"
 internal_port=8080
+app_env_file="/opt/devops-java-002/app.env"
 
 wait_for_health() {
   local attempt
@@ -32,6 +33,16 @@ fi
 if [[ ! "$host_port" =~ ^[0-9]+$ ]] || (( host_port < 1 || host_port > 65535 )); then
   printf 'Invalid host port: %s\n' "$host_port" >&2
   exit 2
+fi
+
+if [[ ! -f "$app_env_file" || ! -r "$app_env_file" ]]; then
+  printf 'Required application environment file is missing or unreadable: %s\n' "$app_env_file" >&2
+  exit 1
+fi
+
+if [[ "$(stat -c '%u:%a' "$app_env_file")" != "0:600" ]]; then
+  printf 'Application environment file must be owned by root with mode 0600: %s\n' "$app_env_file" >&2
+  exit 1
 fi
 
 previous_image=""
@@ -57,6 +68,7 @@ restore_previous() {
     --name "$container_name" \
     --restart unless-stopped \
     --network private-net \
+    --env-file "$app_env_file" \
     --publish "${host_port}:${internal_port}" \
     "$previous_image" >/dev/null
   if ! wait_for_health; then
@@ -70,6 +82,7 @@ if ! docker run --pull=never --detach \
   --name "$container_name" \
   --restart unless-stopped \
   --network private-net \
+  --env-file "$app_env_file" \
   --publish "${host_port}:${internal_port}" \
   "$image_ref"; then
   if ! restore_previous; then

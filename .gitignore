@@ -42,6 +42,7 @@ infra/terraform/*.tfstate.*
 infra/terraform/*.tfvars
 infra/terraform/crash.log
 
-# Local SSH keys, Ansible inventory, and generated database password
+# Local SSH keys, Ansible inventory, and generated database passwords
 infra/ansible/.postgres_password
+infra/ansible/.app_db_password
 infra/ansible/inventory.ini

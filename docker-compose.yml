@@ -1,6 +1,3 @@
-version: '3.8'
-
-
 services:
   db-service:
     image: postgres:16-alpine
@@ -19,27 +16,40 @@ services:
       timeout: 5s
       retries: 5
 
-  backend-api: 
-    build: .
-    container_name: spring_backend
-    ports:
-    # - host:container
-      - "8081:8080"
+  db-init:
+    image: postgres:16-alpine
+    entrypoint: ["/bin/sh", "/scripts/create-app-db-role.sh"]
     environment:
-      # These match the ${VAR} names in your application.properties
-      - DB_HOST=db-service
-      - DB_PORT=5432
-      - DB_NAME=${DB_NAME:-studentdb}
-      - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:?Set DB_PASSWORD in the ignored .env file}
-    # volumes:
-    #   - /var/log:/var/log
-    #   - ./src:/src
+      PGHOST: db-service
+      PGDATABASE: ${DB_NAME:-studentdb}
+      PGUSER: ${DB_USER:-postgres}
+      PGPASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in the ignored .env file}
+      APP_DB_USER: ${APP_DB_USER:-java_app}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Set APP_DB_PASSWORD in the ignored .env file}
+    volumes:
+      - ./infra/scripts/create-app-db-role.sh:/scripts/create-app-db-role.sh:ro
     networks:
       - private-net
     depends_on:
       db-service:
-        condition: service_healthy # Wait for the DB to be fully ready
+        condition: service_healthy
+
+  backend-api: 
+    build: .
+    container_name: spring_backend
+    ports:
+      - "8081:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db-service:5432/${DB_NAME:-studentdb}
+      SPRING_DATASOURCE_USERNAME: ${APP_DB_USER:-java_app}
+      SPRING_DATASOURCE_PASSWORD: ${APP_DB_PASSWORD:?Set APP_DB_PASSWORD in the ignored .env file}
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+    networks:
+      - private-net
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
 
 networks:
   private-net:
