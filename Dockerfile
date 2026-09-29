@@ -7,11 +7,11 @@ WORKDIR /app
 # This is a DevOps best practice so we don't re-download jars every time code changes.
 COPY .mvn/ .mvn 
 COPY mvnw pom.xml ./
-RUN ./mvnw dependency:go-offline
+RUN sh ./mvnw dependency:go-offline
 
 # Step B: Copy the actual source code and build the "Invisible" JAR
 COPY src ./src
-RUN ./mvnw clean package -DskipTests
+RUN sh ./mvnw clean package
 
 # STAGE 2: The Runtime Environment 
 # We switch to the JRE (Runtime) to keep the image small and secure.
