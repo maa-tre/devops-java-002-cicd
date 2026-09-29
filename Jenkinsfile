@@ -132,7 +132,7 @@ pipeline {
                   always {
                       bat(returnStatus: true, script: '''
                           @echo off
-                          docker rm --force java-app-pg-ci-app-%BUILD_NUMBER% java-app-pg-db-%BUILD_NUMBER% 2>NUL
+                          docker rm --force java-app-pg-app-%BUILD_NUMBER% java-app-pg-db-%BUILD_NUMBER% 2>NUL
                           docker network rm java-app-pg-ci-%BUILD_NUMBER% 2>NUL
                       ''')
                   }
