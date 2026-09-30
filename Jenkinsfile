@@ -104,20 +104,29 @@ pipeline {
                       set /a "PG_TEST_HTTP_PORT=18000+%BUILD_NUMBER%"
                       docker network create %PG_TEST_NETWORK%
                       if errorlevel 1 exit /b 1
-                      docker run --detach --name %PG_TEST_DB% --network %PG_TEST_NETWORK% --health-cmd "pg_isready -U ci_admin -d ci_test" --health-interval 2s --health-timeout 3s --health-retries 15 -e POSTGRES_DB=ci_test -e POSTGRES_USER=ci_admin -e POSTGRES_PASSWORD=ci-admin-%BUILD_NUMBER%-secret postgres:16-alpine
+                      docker run --detach --name %PG_TEST_DB% --network %PG_TEST_NETWORK% --health-cmd "pg_isready -h 127.0.0.1 -U ci_admin -d ci_test" --health-interval 2s --health-timeout 3s --health-retries 15 -e POSTGRES_DB=ci_test -e POSTGRES_USER=ci_admin -e POSTGRES_PASSWORD=ci-admin-%BUILD_NUMBER%-secret postgres:16-alpine
                       if errorlevel 1 exit /b 1
                       for /l %%I in (1,1,30) do (
-                          docker exec %PG_TEST_DB% pg_isready -U ci_admin -d ci_test >NUL 2>&1
+                          docker exec %PG_TEST_DB% pg_isready -h 127.0.0.1 -U ci_admin -d ci_test >NUL 2>&1
                           if not errorlevel 1 goto pg_ready
                           ping -n 3 127.0.0.1 >NUL
                       )
                       docker logs %PG_TEST_DB%
                       exit /b 1
                       :pg_ready
-                      docker exec %PG_TEST_DB% psql --set=ON_ERROR_STOP=1 --username ci_admin --dbname ci_test --command="CREATE ROLE ci_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD 'ci-only-%BUILD_NUMBER%-secret'"
-                      if errorlevel 1 exit /b 1
-                      docker exec %PG_TEST_DB% psql --set=ON_ERROR_STOP=1 --username ci_admin --dbname ci_test --command="GRANT CONNECT ON DATABASE ci_test TO ci_app; GRANT USAGE ON SCHEMA public TO ci_app"
-                      if errorlevel 1 exit /b 1
+                      echo PostgreSQL is accepting TCP connections; configuring the least-privilege test role and schema
+                      docker exec --env PGPASSWORD=ci-admin-%BUILD_NUMBER%-secret %PG_TEST_DB% psql -h 127.0.0.1 --set=ON_ERROR_STOP=1 --username ci_admin --dbname ci_test --command="CREATE ROLE ci_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD 'ci-only-%BUILD_NUMBER%-secret'"
+                      if errorlevel 1 (
+                          echo Failed to create the PostgreSQL test role; database logs follow
+                          docker logs %PG_TEST_DB%
+                          exit /b 1
+                      )
+                      docker exec --env PGPASSWORD=ci-admin-%BUILD_NUMBER%-secret %PG_TEST_DB% psql -h 127.0.0.1 --set=ON_ERROR_STOP=1 --username ci_admin --dbname ci_test --command="GRANT CONNECT ON DATABASE ci_test TO ci_app; GRANT USAGE ON SCHEMA public TO ci_app; CREATE TABLE rollback_requests (id uuid PRIMARY KEY, target_image varchar(100) NOT NULL, previous_image varchar(100), status varchar(20) NOT NULL, phase varchar(40) NOT NULL, message varchar(500) NOT NULL, requested_at timestamp with time zone NOT NULL, completed_at timestamp with time zone); GRANT SELECT, INSERT, UPDATE ON TABLE rollback_requests TO ci_app"
+                      if errorlevel 1 (
+                          echo Failed to provision the PostgreSQL rollback history table; database logs follow
+                          docker logs %PG_TEST_DB%
+                          exit /b 1
+                      )
                       docker run --detach --name %PG_TEST_APP% --network %PG_TEST_NETWORK% --publish 127.0.0.1:%PG_TEST_HTTP_PORT%:8080 -e SPRING_DATASOURCE_URL=jdbc:postgresql://%PG_TEST_DB%:5432/ci_test -e SPRING_DATASOURCE_USERNAME=ci_app -e SPRING_DATASOURCE_PASSWORD=ci-only-%BUILD_NUMBER%-secret -e SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver -e SPRING_JPA_HIBERNATE_DDL_AUTO=validate %CI_IMAGE%
                       if errorlevel 1 exit /b 1
                       powershell.exe -NoProfile -NonInteractive -Command "$deadline = (Get-Date).AddSeconds(90); do { try { $response = Invoke-WebRequest -Uri 'http://127.0.0.1:%PG_TEST_HTTP_PORT%/' -UseBasicParsing -TimeoutSec 2; if ($response.StatusCode -eq 200) { exit 0 } } catch { }; Start-Sleep -Seconds 2 } while ((Get-Date) -lt $deadline); exit 1"
