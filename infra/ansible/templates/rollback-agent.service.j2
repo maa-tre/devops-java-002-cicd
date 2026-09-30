@@ -1,0 +1,22 @@
+[Unit]
+Description=Restricted application rollback helper
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/devops-java-002/rollback-agent.env
+Environment=ROLLBACK_AGENT_BIND={{ docker_host_gateway }}
+ExecStart=/usr/bin/python3 /opt/devops-java-002/rollback-agent.py
+Restart=always
+RestartSec=2
+User=root
+Group=root
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/devops-java-002/rollback-requests /run/docker.sock
+
+[Install]
+WantedBy=multi-user.target

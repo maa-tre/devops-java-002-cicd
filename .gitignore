@@ -45,4 +45,6 @@ infra/terraform/crash.log
 # Local SSH keys, Ansible inventory, and generated database passwords
 infra/ansible/.postgres_password
 infra/ansible/.app_db_password
+infra/ansible/.rollback_pin
+infra/ansible/.rollback_agent_token
 infra/ansible/inventory.ini

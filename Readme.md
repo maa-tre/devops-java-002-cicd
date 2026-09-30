@@ -36,8 +36,7 @@ For a local full-stack Compose run, copy `.env.example` to `.env`, set distinct
 strong values for `DB_PASSWORD` and `APP_DB_PASSWORD`, then run
 `docker compose up --build`. Restrict the local env file with `chmod 600 .env`.
 Compose provisions the non-admin app role before starting the backend. Plain
-`./mvnw spring-boot:run` continues to use H2. Deployment-history storage and
-its authenticated Jenkins rollback workflow are a later implementation step.
+`./mvnw spring-boot:run` continues to use H2.
 
 Ansible must configure the EC2 host before the first deployment of an image
 that requires PostgreSQL. To rotate the app database password, replace the
@@ -47,6 +46,38 @@ environment. This rotates the DB role and changes the app env file; the
 currently running container must be redeployed immediately to use the new
 password. Restrict EC2/Docker access: Docker administrators can inspect
 container environment values.
+
+### Demo rollback UI
+
+`/deploy` lists `java-app:ci-*` images still retained in EC2's local Docker
+image store and the currently running image. It accepts an 8-digit demo PIN,
+requires a final browser confirmation, and rate-limits five wrong PIN attempts
+per client address for 15 minutes. Recent rollback requests and their status
+are recorded in PostgreSQL. The image selection is checked again by a
+restricted EC2 helper; the app container has no Docker socket access. The
+helper only starts an existing `java-app:ci-*` image through the
+health-checking deployment script. If the new image fails health checks, the
+script attempts to restore the version that was running before the request.
+The interface reports phases and explains the expected 30–90 second operation
+(up to 60 seconds of health checks); a rollback briefly interrupts the app.
+
+Ansible generates the demo PIN locally in the ignored
+`infra/ansible/.rollback_pin` file (mode `0600`) and installs only its
+PBKDF2-SHA256 hash into the root-only EC2 app environment. Read the PIN on the
+Ansible machine and deliver it to operators through a private channel; never
+commit, log, or paste it into a ticket/chat. Ansible also generates a separate
+agent token. The restricted helper listens on Docker's host-gateway address,
+not a public application port, and accepts requests only with that token.
+Keep access to EC2, Docker, and the Ansible controller limited to trusted
+operators.
+
+This PIN is a basic shared-secret gate for a demo, not production
+authentication. The public demo currently serves HTTP, so a PIN entered over
+that connection is not encrypted in transit. Use only the generated demo PIN;
+do not reuse a real password or PIN. For production, put the site behind HTTPS
+and replace the shared PIN with named operator accounts and stronger
+authentication. This control executes rollback directly on EC2; regular
+build-and-deploy releases continue through Jenkins.
 
 Ansible installs the root-owned deployment script at
 `/opt/devops-java-002/deploy-app.sh`; it checks the endpoint and attempts to

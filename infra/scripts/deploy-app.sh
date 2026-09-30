@@ -68,6 +68,7 @@ restore_previous() {
     --name "$container_name" \
     --restart unless-stopped \
     --network private-net \
+    --add-host host.docker.internal:host-gateway \
     --env-file "$app_env_file" \
     --publish "${host_port}:${internal_port}" \
     "$previous_image" >/dev/null
@@ -82,6 +83,7 @@ if ! docker run --pull=never --detach \
   --name "$container_name" \
   --restart unless-stopped \
   --network private-net \
+  --add-host host.docker.internal:host-gateway \
   --env-file "$app_env_file" \
   --publish "${host_port}:${internal_port}" \
   "$image_ref"; then
