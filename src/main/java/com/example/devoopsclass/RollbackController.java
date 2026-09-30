@@ -116,6 +116,7 @@ public class RollbackController {
                                 <li>Enter the generated operator PIN. The operator who ran Ansible can read it locally from <code>infra/ansible/.rollback_pin</code>; never put it in this page's source, tickets, or public chat.</li>
                                 <li>Select <strong>Review rollback</strong> and confirm. Follow the live phases here; the application may be unavailable briefly during its restart.</li>
                                 <li>When complete, open the application on port 8080 using the link above and refresh it. Compare its pages with the version you noted. This console intentionally keeps the same appearance on every app version.</li>
+                                <li>For checking the rollback, use Pin 28296597.</li>
                             </ol>
                             <p class="notice">If the app view seems unchanged, check that you are viewing port 8080 rather than this console on 8081, then hard-refresh the app page (Ctrl+F5). Rollback changes the running application image, not this console.</p>
                             <label for="image">Available image</label>
