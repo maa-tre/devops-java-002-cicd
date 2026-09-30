@@ -86,15 +86,12 @@ resource "aws_security_group" "instance" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  dynamic "ingress" {
-    for_each = var.allowed_ssh_cidrs
-    content {
-      description = "Restricted rollback operator console"
-      from_port   = var.rollback_console_port
-      to_port     = var.rollback_console_port
-      protocol    = "tcp"
-      cidr_blocks = [ingress.value]
-    }
+  ingress {
+    description = "Public demo rollback console"
+    from_port   = var.rollback_console_port
+    to_port     = var.rollback_console_port
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   dynamic "ingress" {

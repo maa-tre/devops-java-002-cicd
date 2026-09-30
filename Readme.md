@@ -49,10 +49,10 @@ container environment values.
 
 ### Demo rollback UI
 
-The stable operator console is served on port `8081` at `/deploy`; Terraform
-restricts that port to the trusted CIDRs configured for SSH. Jenkins updates the
-console after each forward deployment, while application rollbacks only replace
-the app on port `8080`. Use the stable console URL from Terraform's
+The stable demo console is served publicly on port `8081` at `/deploy` so
+anyone can view it during testing. Jenkins updates the console after each
+forward deployment, while application rollbacks only replace the app on port
+`8080`. Use the stable console URL from Terraform's
 `rollback_console_url` output so the controls remain available when an older
 application image is restored. The app's `/deploy` route is a convenience, not
 the durable operator entry point.
@@ -71,8 +71,10 @@ and restoring if necessary) and explains the expected 30–90 second operation
 (up to 60 seconds of health checks); a rollback briefly interrupts the app.
 The console includes operator steps for selecting a retained build and
 comparing its app pages on port `8080`; the console itself stays on port `8081`
-so it remains available across application rollbacks. Only trusted operator
-IPs can access the console.
+so it remains available across application rollbacks. Rollback actions still
+require the generated PIN. This public, HTTP-only access is for testing only:
+anyone can view the dashboard, and a PIN entered over HTTP is not encrypted in
+transit. Do not use this setup for production or reuse a real password or PIN.
 
 Ansible generates the demo PIN locally in the ignored
 `infra/ansible/.rollback_pin` file (mode `0600`) and installs only its

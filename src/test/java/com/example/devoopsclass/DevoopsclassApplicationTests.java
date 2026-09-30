@@ -45,6 +45,7 @@ class DevoopsclassApplicationTests {
 		assertTrue(page.contains("Available image"));
 		assertTrue(page.contains("Rollback PIN"));
 		assertTrue(page.contains("How to roll back and compare versions"));
+		assertTrue(page.contains("anyone can view this console"));
 		assertTrue(page.contains("infra/ansible/.rollback_pin"));
 		assertTrue(page.contains("intentionally not shown or prefilled"));
 		assertTrue(page.contains(":8080/"));

@@ -28,7 +28,7 @@ variable "app_port" {
 }
 
 variable "rollback_console_port" {
-  description = "Operator-only port for the rollback console, restricted to the trusted SSH CIDRs."
+  description = "Public testing port for the rollback console."
   type        = number
   default     = 8081
 

@@ -14,7 +14,7 @@ output "app_url" {
 }
 
 output "rollback_console_url" {
-  description = "Operator-only rollback console URL, restricted by allowed_ssh_cidrs."
+  description = "Public demo rollback console URL."
   value       = "http://${aws_instance.demo.public_ip}:${var.rollback_console_port}/deploy"
 }
 
