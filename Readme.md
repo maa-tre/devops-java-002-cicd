@@ -69,6 +69,10 @@ script attempts to restore the version that was running before the request.
 The interface reports each actual phase (stopping, starting, health checking,
 and restoring if necessary) and explains the expected 30–90 second operation
 (up to 60 seconds of health checks); a rollback briefly interrupts the app.
+The console includes operator steps for selecting a retained build and
+comparing its app pages on port `8080`; the console itself stays on port `8081`
+so it remains available across application rollbacks. Only trusted operator
+IPs can access the console.
 
 Ansible generates the demo PIN locally in the ignored
 `infra/ansible/.rollback_pin` file (mode `0600`) and installs only its

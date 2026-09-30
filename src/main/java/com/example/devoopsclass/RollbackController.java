@@ -91,6 +91,8 @@ public class RollbackController {
                         .progress[data-phase=restored] span { width:100%; background:#ffadb4; }
                         @keyframes pulse { to { opacity:.45; } }
                         .history-row { border-top:1px solid #ffffff1b; padding:.9rem 0; }
+                        .steps { padding-left:1.25rem; }
+                        .steps li { margin:.55rem 0; }
                         code { color:#8af0c3; }
                         @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important; transition:none!important; } }
                     </style>
@@ -105,13 +107,22 @@ public class RollbackController {
                             <h1>Choose a version to restore.</h1>
                             <p>Images are listed from EC2’s local Docker store. These images passed Jenkins build checks; a transferred image might not have completed an earlier deployment. Rollback does not rebuild or transfer an image.</p>
                             <p class="notice"><strong>Demo security:</strong> use only the generated demo PIN. This site currently uses HTTP, so do not enter a PIN you use for anything else.</p>
-                            <p class="notice">This operator console runs separately from the application being rolled back and remains available at <a id="stable-console-link" href="/deploy">the stable rollback console</a>.</p>
+                            <p class="notice"><strong>Operator only:</strong> this console is restricted to trusted operator IPs. Visitors can view the application at <a id="application-link" href="/">the application</a>; do not share the operator PIN with public users.</p>
+                            <p class="notice">This console runs separately from the application and stays available during rollbacks. The application itself is served on port 8080; this operator console remains on port 8081.</p>
                             <p class="notice"><strong>What happens:</strong> the helper validates the image, replaces the app container, and checks the homepage. This usually takes 30–90 seconds; health checks can run for up to 60 seconds. If the target is unhealthy, the helper restores the currently running image. The site may briefly be unavailable while the container restarts.</p>
+                            <h2>How to roll back and compare versions</h2>
+                            <ol class="steps">
+                                <li>Note the currently running image shown below the selector, then choose a different retained <code>java-app:ci-*</code> build.</li>
+                                <li>Enter the generated operator PIN. The operator who ran Ansible can read it locally from <code>infra/ansible/.rollback_pin</code>; never put it in this page's source, tickets, or public chat.</li>
+                                <li>Select <strong>Review rollback</strong> and confirm. Follow the live phases here; the application may be unavailable briefly during its restart.</li>
+                                <li>When complete, open the application on port 8080 using the link above and refresh it. Compare its pages with the version you noted. This console intentionally keeps the same appearance on every app version.</li>
+                            </ol>
+                            <p class="notice">If the app view seems unchanged, check that you are viewing port 8080 rather than this console on 8081, then hard-refresh the app page (Ctrl+F5). Rollback changes the running application image, not this console.</p>
                             <label for="image">Available image</label>
                             <select id="image" disabled><option>Loading available images…</option></select>
                             <label for="pin">Rollback PIN</label>
-                            <input id="pin" type="password" inputmode="numeric" autocomplete="off" minlength="8" maxlength="32" pattern="[0-9]{8,32}" placeholder="At least 8 digits" aria-describedby="pin-note">
-                            <p id="pin-note">Five incorrect attempts lock rollback requests from this address for 15 minutes.</p>
+                            <input id="pin" type="password" inputmode="numeric" autocomplete="off" minlength="8" maxlength="32" pattern="[0-9]{8,32}" placeholder="Enter your private 8-digit operator PIN" aria-describedby="pin-note">
+                            <p id="pin-note">Use the generated PIN from the trusted operator only; it is intentionally not shown or prefilled here. Five incorrect attempts lock rollback requests from this address for 15 minutes.</p>
                             <div class="actions"><button id="rollback" class="danger" disabled>Review rollback</button><button id="refresh">Refresh versions</button></div>
                             <div id="status" class="status" role="status" aria-live="polite"></div>
                             <div id="progress" class="progress" hidden><span></span></div>
@@ -233,7 +244,7 @@ public class RollbackController {
                             }
                         });
                         document.getElementById('refresh').addEventListener('click', () => { loadImages(); loadHistory(); });
-                        document.getElementById('stable-console-link').href = `${location.protocol}//${location.hostname}:8081/deploy`;
+                        document.getElementById('application-link').href = `${location.protocol}//${location.hostname}:8080/`;
                         loadImages();
                         loadHistory();
                     </script>
