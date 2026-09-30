@@ -1,5 +1,6 @@
 import os
 import runpy
+import tempfile
 import unittest
 from email.message import Message
 from io import BytesIO
@@ -7,9 +8,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 with patch.dict(os.environ, {"ROLLBACK_AGENT_TOKEN": "unit-test-token"}):
-    read_request_payload = runpy.run_path(
-        str(Path(__file__).with_name("rollback-agent.py"))
-    )["read_request_payload"]
+    namespace = runpy.run_path(str(Path(__file__).with_name("rollback-agent.py")))
+    read_request_payload = namespace["read_request_payload"]
+    read_progress = namespace["read_progress"]
 
 
 class FakeHandler:
@@ -62,6 +63,21 @@ class ReadRequestPayloadTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             read_request_payload(handler)
+
+    def test_reads_live_deployment_phase(self):
+        progress_file = Path(self.enterContext(tempfile.TemporaryDirectory())) / "phase"
+        progress_file.write_text("health_check\tChecking the application endpoint.\n", encoding="utf-8")
+
+        self.assertEqual(
+            ("health_check", "Checking the application endpoint."),
+            read_progress(progress_file),
+        )
+
+    def test_ignores_incomplete_deployment_phase(self):
+        progress_file = Path(self.enterContext(tempfile.TemporaryDirectory())) / "phase"
+        progress_file.write_text("health_check\n", encoding="utf-8")
+
+        self.assertIsNone(read_progress(progress_file))
 
 
 if __name__ == "__main__":

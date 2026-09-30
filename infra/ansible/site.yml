@@ -155,6 +155,14 @@
         group: root
         mode: "0755"
 
+    - name: Install stable rollback console deployment script
+      ansible.builtin.copy:
+        src: ../scripts/deploy-rollback-console.sh
+        dest: "{{ deployment_dir }}/deploy-rollback-console.sh"
+        owner: root
+        group: root
+        mode: "0755"
+
     - name: Install PostgreSQL Compose configuration
       ansible.builtin.template:
         src: templates/compose.yaml.j2

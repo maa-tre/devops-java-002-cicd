@@ -46,6 +46,8 @@ class DevoopsclassApplicationTests {
 		assertTrue(page.contains("Rollback PIN"));
 		assertTrue(page.contains("up to 60 seconds"));
 		assertTrue(page.contains("If the target is unhealthy"));
+		assertTrue(page.contains(":8081/deploy"));
+		assertTrue(page.contains("health_check"));
 		assertTrue(page.contains("/api/rollback"));
 		assertTrue(page.contains("Recent rollback activity"));
 	}

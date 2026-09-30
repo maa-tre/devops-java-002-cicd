@@ -82,6 +82,13 @@ public class RollbackController {
                         .progress span { display:block; height:100%; width:20%; background:#68e0b0; transition:width .5s; }
                         .progress.running span { width:70%; animation:pulse 1.2s ease-in-out infinite alternate; }
                         .progress.done span { width:100%; }
+                        .progress.failed span { width:100%; background:#ffadb4; }
+                        .progress[data-phase=validating] span { width:15%; }
+                        .progress[data-phase=stopping] span { width:30%; }
+                        .progress[data-phase=starting] span { width:48%; }
+                        .progress[data-phase=health_check] span { width:72%; }
+                        .progress[data-phase=restoring] span { width:82%; background:#ffc77d; }
+                        .progress[data-phase=restored] span { width:100%; background:#ffadb4; }
                         @keyframes pulse { to { opacity:.45; } }
                         .history-row { border-top:1px solid #ffffff1b; padding:.9rem 0; }
                         code { color:#8af0c3; }
@@ -98,6 +105,7 @@ public class RollbackController {
                             <h1>Choose a version to restore.</h1>
                             <p>Images are listed from EC2’s local Docker store. These images passed Jenkins build checks; a transferred image might not have completed an earlier deployment. Rollback does not rebuild or transfer an image.</p>
                             <p class="notice"><strong>Demo security:</strong> use only the generated demo PIN. This site currently uses HTTP, so do not enter a PIN you use for anything else.</p>
+                            <p class="notice">This operator console runs separately from the application being rolled back and remains available at <a id="stable-console-link" href="/deploy">the stable rollback console</a>.</p>
                             <p class="notice"><strong>What happens:</strong> the helper validates the image, replaces the app container, and checks the homepage. This usually takes 30–90 seconds; health checks can run for up to 60 seconds. If the target is unhealthy, the helper restores the currently running image. The site may briefly be unavailable while the container restarts.</p>
                             <label for="image">Available image</label>
                             <select id="image" disabled><option>Loading available images…</option></select>
@@ -121,7 +129,16 @@ public class RollbackController {
                         const progress = document.getElementById('progress');
                         const historyBox = document.getElementById('history');
                         let currentImage = '';
-                        const labels = { validating: 'Validating retained image', starting: 'Starting target and health-checking', complete: 'Rollback completed', restored: 'Target failed; restoring previous version', error: 'Rollback failed' };
+                        const labels = {
+                            validating: 'Validating the rollback request',
+                            stopping: 'Stopping the current application',
+                            starting: 'Starting the selected application image',
+                            health_check: 'Checking application health',
+                            restoring: 'Target failed; restoring the previous image',
+                            restored: 'Rollback target failed; previous image restored',
+                            complete: 'Rollback completed successfully',
+                            error: 'Rollback failed'
+                        };
 
                         async function api(url, options = {}) {
                             const response = await fetch(url, { cache: 'no-store', ...options });
@@ -132,7 +149,7 @@ public class RollbackController {
                         function escapeHtml(value) {
                             return String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
                         }
-                        async function loadImages() {
+                        async function loadImages(updateStatus = true) {
                             rollbackButton.disabled = true;
                             imageSelect.disabled = true;
                             try {
@@ -152,11 +169,15 @@ public class RollbackController {
                                 imageSelect.disabled = data.images.length === 0;
                                 rollbackButton.disabled = data.images.length === 0;
                                 if (!data.images.length) current.textContent = `Currently running: ${currentImage} · no other retained images found`;
-                                statusBox.textContent = data.images.length ? 'Select a retained version to continue.' : 'No other rollback images are currently available.';
-                                statusBox.classList.remove('error');
+                                if (updateStatus) {
+                                    statusBox.textContent = data.images.length ? 'Select a retained version to continue.' : 'No other rollback images are currently available.';
+                                    statusBox.classList.remove('error');
+                                }
                             } catch (error) {
-                                statusBox.textContent = error.message;
-                                statusBox.classList.add('error');
+                                if (updateStatus) {
+                                    statusBox.textContent = error.message;
+                                    statusBox.classList.add('error');
+                                }
                             }
                         }
                         function renderHistory(items) {
@@ -170,15 +191,16 @@ public class RollbackController {
                         async function followRequest(id) {
                             progress.hidden = false;
                             progress.className = 'progress running';
-                            const deadline = Date.now() + 150000;
+                            const deadline = Date.now() + 210000;
                             while (Date.now() < deadline) {
                                 try {
                                     const request = await api(`/api/rollback/requests/${encodeURIComponent(id)}`);
                                     statusBox.textContent = `${labels[request.phase] || request.phase}: ${request.message}`;
+                                    progress.dataset.phase = request.phase;
                                     await loadHistory();
                                     if (request.status === 'succeeded' || request.status === 'failed') {
-                                        progress.className = 'progress done';
-                                        await loadImages();
+                                        progress.className = request.status === 'succeeded' ? 'progress done' : 'progress failed';
+                                        await loadImages(false);
                                         return;
                                     }
                                 } catch (error) {
@@ -211,6 +233,7 @@ public class RollbackController {
                             }
                         });
                         document.getElementById('refresh').addEventListener('click', () => { loadImages(); loadHistory(); });
+                        document.getElementById('stable-console-link').href = `${location.protocol}//${location.hostname}:8081/deploy`;
                         loadImages();
                         loadHistory();
                     </script>

@@ -177,6 +177,8 @@ pipeline {
                   bat """
                       wsl.exe -- bash -lc "set -o pipefail && docker image inspect '%CI_IMAGE%' >/dev/null && docker save '%CI_IMAGE%' | gzip -c | ssh -i ~/.ssh/devops-java-002 -o BatchMode=yes -o StrictHostKeyChecking=accept-new ubuntu@${params.DEPLOY_HOST} 'gunzip -c | sudo docker load && sudo /opt/devops-java-002/deploy-app.sh %CI_IMAGE% 8080'"
                       if errorlevel 1 exit /b 1
+                      wsl.exe -- bash -lc "ssh -i ~/.ssh/devops-java-002 -o BatchMode=yes -o StrictHostKeyChecking=accept-new ubuntu@${params.DEPLOY_HOST} 'sudo /opt/devops-java-002/deploy-rollback-console.sh %CI_IMAGE%'"
+                      if errorlevel 1 exit /b 1
                   """
               }
           }

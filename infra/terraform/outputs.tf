@@ -13,6 +13,11 @@ output "app_url" {
   value       = "http://${aws_instance.demo.public_ip}:${var.app_port}"
 }
 
+output "rollback_console_url" {
+  description = "Operator-only rollback console URL, restricted by allowed_ssh_cidrs."
+  value       = "http://${aws_instance.demo.public_ip}:${var.rollback_console_port}/deploy"
+}
+
 output "ssh_access_configured" {
   description = "Whether at least one restricted SSH source CIDR was configured."
   value       = length(var.allowed_ssh_cidrs) > 0

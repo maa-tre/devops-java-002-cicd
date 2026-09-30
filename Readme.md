@@ -49,7 +49,15 @@ container environment values.
 
 ### Demo rollback UI
 
-`/deploy` lists `java-app:ci-*` images still retained in EC2's local Docker
+The stable operator console is served on port `8081` at `/deploy`; Terraform
+restricts that port to the trusted CIDRs configured for SSH. Jenkins updates the
+console after each forward deployment, while application rollbacks only replace
+the app on port `8080`. Use the stable console URL from Terraform's
+`rollback_console_url` output so the controls remain available when an older
+application image is restored. The app's `/deploy` route is a convenience, not
+the durable operator entry point.
+
+The console lists `java-app:ci-*` images still retained in EC2's local Docker
 image store and the currently running image. It accepts an 8-digit demo PIN,
 requires a final browser confirmation, and rate-limits five wrong PIN attempts
 per client address for 15 minutes. Recent rollback requests and their status
@@ -58,7 +66,8 @@ restricted EC2 helper; the app container has no Docker socket access. The
 helper only starts an existing `java-app:ci-*` image through the
 health-checking deployment script. If the new image fails health checks, the
 script attempts to restore the version that was running before the request.
-The interface reports phases and explains the expected 30–90 second operation
+The interface reports each actual phase (stopping, starting, health checking,
+and restoring if necessary) and explains the expected 30–90 second operation
 (up to 60 seconds of health checks); a rollback briefly interrupts the app.
 
 Ansible generates the demo PIN locally in the ignored
@@ -138,8 +147,13 @@ bash infra/scripts/setup.sh
 
 The SSH keypair is generated locally and only the public key is registered with
 AWS. The private key and generated PostgreSQL password are not committed. The
-PostgreSQL container has no published host port; only the app port is open to
-the internet. Terraform outputs the instance public IP and app URL.
+PostgreSQL container has no published host port; the app port is public, while
+the rollback console port is restricted to `allowed_ssh_cidrs`. Terraform
+outputs the instance IP, app URL, and operator-only `rollback_console_url`.
+When upgrading an existing host for the stable console, apply the Terraform
+security-group change, run Ansible to install the console deployment script,
+then let Jenkins perform a forward deployment; that deployment starts the
+console independently on the configured port.
 
 Use `terraform -chdir=infra/terraform destroy` to remove the demo
 infrastructure. Destroying the instance also deletes its local PostgreSQL

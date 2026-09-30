@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 import threading
+import time
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -51,6 +52,17 @@ def write_state(request_id, state):
     temporary.write_text(json.dumps(state), encoding="utf-8")
     temporary.chmod(0o600)
     temporary.replace(destination)
+
+
+def read_progress(progress_path):
+    try:
+        progress = progress_path.read_text(encoding="utf-8").rstrip("\r\n")
+    except FileNotFoundError:
+        return None
+    phase, separator, message = progress.partition("\t")
+    if not separator or not phase or not message:
+        return None
+    return phase, message
 
 
 def read_state(request_id):
@@ -107,43 +119,71 @@ def read_request_payload(handler):
 
 
 def execute_rollback(request_id, image):
+    progress_path = STATE_DIR / (request_id + ".progress")
+    log_path = STATE_DIR / (request_id + ".log")
     try:
+        progress_path.unlink(missing_ok=True)
         write_state(request_id, {
             "id": request_id,
             "image": image,
             "status": "running",
-            "phase": "starting",
+            "phase": "validating",
             "startedAt": datetime.now(timezone.utc).isoformat(),
-            "message": "Starting the selected image. The health check can take up to 60 seconds.",
+            "message": "Starting the rollback command on the EC2 host.",
         })
-        result = subprocess.run(
-            ["/opt/devops-java-002/deploy-app.sh", image, "8080"],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=100,
-        )
-        lines = (result.stdout + "\n" + result.stderr).splitlines()
-        message = next(
-            (line.strip() for line in reversed(lines) if line.strip()),
-            "Rollback command finished.",
-        )
+        environment = os.environ.copy()
+        environment["ROLLBACK_PROGRESS_FILE"] = str(progress_path)
+        with log_path.open("a", encoding="utf-8") as log_file:
+            log_path.chmod(0o600)
+            process = subprocess.Popen(
+                ["/opt/devops-java-002/deploy-app.sh", image, "8080"],
+                stdout=log_file,
+                stderr=subprocess.STDOUT,
+                env=environment,
+            )
+            deadline = time.monotonic() + 180
+            last_progress = None
+            while process.poll() is None:
+                progress = read_progress(progress_path)
+                if progress and progress != last_progress:
+                    phase, message = progress
+                    write_state(request_id, {
+                        "id": request_id,
+                        "image": image,
+                        "status": "running",
+                        "phase": phase,
+                        "message": message[:500],
+                    })
+                    last_progress = progress
+                if time.monotonic() >= deadline:
+                    process.kill()
+                    process.wait()
+                    write_state(request_id, {
+                        "id": request_id,
+                        "image": image,
+                        "status": "failed",
+                        "phase": "error",
+                        "completedAt": datetime.now(timezone.utc).isoformat(),
+                        "message": "Rollback timed out; inspect EC2 deployment logs and current health.",
+                    })
+                    return
+                time.sleep(0.5)
+            return_code = process.returncode
+        progress = read_progress(progress_path)
+        phase, progress_message = progress if progress else ("", "")
+        with log_path.open(encoding="utf-8") as log_file:
+            log_file.seek(0, os.SEEK_END)
+            log_file.seek(max(0, log_file.tell() - 4096))
+            lines = log_file.read().splitlines()
+        log_message = next((line.strip() for line in reversed(lines) if line.strip()), "")
+        succeeded = return_code == 0
         write_state(request_id, {
             "id": request_id,
             "image": image,
-            "status": "succeeded" if result.returncode == 0 else "failed",
-            "phase": "complete" if result.returncode == 0 else "restored",
+            "status": "succeeded" if succeeded else "failed",
+            "phase": "complete" if succeeded else (phase or "restored"),
             "completedAt": datetime.now(timezone.utc).isoformat(),
-            "message": message[:500],
-        })
-    except subprocess.TimeoutExpired:
-        write_state(request_id, {
-            "id": request_id,
-            "image": image,
-            "status": "failed",
-            "phase": "restored",
-            "completedAt": datetime.now(timezone.utc).isoformat(),
-            "message": "Rollback timed out; inspect EC2 deployment logs and current health.",
+            "message": (progress_message if succeeded else (progress_message or log_message))[:500],
         })
     except Exception:
         write_state(request_id, {

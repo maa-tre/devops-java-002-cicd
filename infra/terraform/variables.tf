@@ -27,6 +27,17 @@ variable "app_port" {
   }
 }
 
+variable "rollback_console_port" {
+  description = "Operator-only port for the rollback console, restricted to the trusted SSH CIDRs."
+  type        = number
+  default     = 8081
+
+  validation {
+    condition     = var.rollback_console_port >= 1 && var.rollback_console_port <= 65535 && var.rollback_console_port != var.app_port
+    error_message = "rollback_console_port must be a valid TCP port different from app_port."
+  }
+}
+
 variable "allowed_ssh_cidrs" {
   description = "Trusted IPv4 CIDRs allowed to SSH to the instance."
   type        = list(string)
